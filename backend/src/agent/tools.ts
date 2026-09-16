@@ -18,7 +18,7 @@ export const webSearchTool: ToolDefinition<WebSearchToolInput, WebSearchResponse
   execute: ({ query }) => searchWeb(query),
 }
 
-export const toolRegistry: Record<string, ToolDefinition> = {
+export const toolRegistry: Record<string, ToolDefinition<any, any>> = {
   [webSearchTool.name]: webSearchTool,
 }
 
