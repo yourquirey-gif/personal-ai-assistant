@@ -7,10 +7,10 @@
 }
 
 * { box-sizing: border-box; }
-
 body { margin: 0; min-width: 320px; background: #080b12; }
 button, textarea { font: inherit; }
 button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .55; }
 
 .app-shell {
   min-height: 100vh;
@@ -25,6 +25,12 @@ button { cursor: pointer; }
 h1 { margin: 0; font-size: clamp(42px, 8vw, 76px); line-height: .98; letter-spacing: -.045em; }
 .subtitle { max-width: 620px; margin: 24px auto 34px; color: #aeb8ca; font-size: 18px; line-height: 1.6; }
 
+.conversation { display: grid; gap: 10px; margin: 0 0 14px; text-align: left; }
+.message { padding: 14px 16px; border: 1px solid #293246; border-radius: 16px; background: #101521; }
+.message.user { background: #151d2c; }
+.message-label { display: block; margin-bottom: 5px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .55; }
+.message p { margin: 0; white-space: pre-wrap; line-height: 1.55; }
+
 .chat-box {
   padding: 12px;
   border: 1px solid #293246;
@@ -33,28 +39,11 @@ h1 { margin: 0; font-size: clamp(42px, 8vw, 76px); line-height: .98; letter-spac
   box-shadow: 0 24px 70px rgba(0,0,0,.28);
 }
 
-textarea {
-  width: 100%;
-  resize: none;
-  border: 0;
-  outline: 0;
-  padding: 14px;
-  color: #f4f7fb;
-  background: transparent;
-  font-size: 16px;
-}
+textarea { width: 100%; resize: none; border: 0; outline: 0; padding: 14px; color: #f4f7fb; background: transparent; font-size: 16px; }
 textarea::placeholder { color: #68748a; }
+.chat-box button { width: 100%; border: 0; border-radius: 14px; padding: 13px 18px; color: #081018; background: #f4f7fb; font-weight: 700; }
 
-.chat-box button {
-  width: 100%;
-  border: 0;
-  border-radius: 14px;
-  padding: 13px 18px;
-  color: #081018;
-  background: #f4f7fb;
-  font-weight: 700;
-}
-
+.error-message { margin: 12px 0 0; color: #ff9d9d; font-size: 14px; }
 .suggestions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 16px; }
 .suggestions button { border: 1px solid #293246; border-radius: 999px; padding: 9px 13px; color: #c9d1df; background: #101521; }
 .suggestions button:hover { background: #171e2d; }
