@@ -1,15 +1,15 @@
 import 'dotenv/config'
 import cors from 'cors'
 import express from 'express'
-import { assertServerConfig, config } from './config'
-import { chatRouter } from './routes/chat'
-import { healthRouter } from './routes/health'
+import { assertServerConfig, config } from './config.js'
+import { chatRouter } from './routes/chat.js'
+import { healthRouter } from './routes/health.js'
 
 const app = express()
 
 app.use(
   cors({
-    origin: config.frontendOrigin === '*' ? true : config.frontendOrigin.split(',').map((origin) => origin.trim()),
+    origin: config.frontendOrigin === '*' ? true : config.frontendOrigin.split(',').map((origin: string) => origin.trim()),
   }),
 )
 app.use(express.json({ limit: '1mb' }))
