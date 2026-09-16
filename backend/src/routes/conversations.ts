@@ -6,7 +6,7 @@ import { requireSession, type SessionUser } from '../auth/session.js'
 export const conversationsRouter = Router()
 conversationsRouter.use(requireSession)
 
-function getUser(res: Response) {
+function getUser(res: Response): SessionUser {
   return res.locals.user as SessionUser
 }
 
