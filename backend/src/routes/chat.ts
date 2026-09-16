@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, type Response } from 'express'
 import { ObjectId } from 'mongodb'
 import { config } from '../config.js'
 import { getDb } from '../db.js'
@@ -50,7 +50,7 @@ function startOfToday() {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate())
 }
 
-function getUser(res: { locals: { user?: SessionUser } }) {
+function getUser(res: Response): SessionUser {
   return res.locals.user as SessionUser
 }
 
