@@ -1,12 +1,13 @@
 import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { getCurrentUser, sendChatMessage, signInWithGoogle, signOut, type ChatMessage, type User } from './api'
+import { getCurrentUser, requestPasswordReset, resetPassword, sendChatMessage, signInWithEmail, signInWithGoogle, signUpWithEmail, signOut, verifyPasswordResetOtp, type ChatMessage, type User } from './api'
 import './styles.css'
 import './auth.css'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
 type AuthMode = 'signin' | 'signup'
+type AuthStep = 'auth' | 'forgot-email' | 'otp' | 'new-password'
 type LegalPath = '/terms' | '/privacy' | '/cookies' | '/acceptable-use' | '/ai-disclaimer'
 
 const legalPages: Record<LegalPath, { title: string; sections: [string, string][] }> = {
@@ -24,7 +25,7 @@ function GoogleButton({ onSuccess }: { onSuccess: (user: User) => void }) {
   const [ready, setReady] = useState(Boolean(window.google))
   const [error, setError] = useState('')
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID) { setError('Google sign-in is not configured yet.'); return }
+    if (!GOOGLE_CLIENT_ID) { setError('Google sign-in will be enabled after the final domain is configured.'); return }
     const render = () => {
       if (!window.google || !containerRef.current) return
       containerRef.current.innerHTML = ''
@@ -44,8 +45,56 @@ function GoogleButton({ onSuccess }: { onSuccess: (user: User) => void }) {
 }
 
 function AuthModal({ mode, onClose, onSwitch, onSuccess }: { mode: AuthMode; onClose: () => void; onSwitch: (mode: AuthMode) => void; onSuccess: (user: User) => void }) {
+  const [step, setStep] = useState<AuthStep>('auth')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
+  const [resetToken, setResetToken] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const handleSuccess = (user: User) => { onSuccess(user); onClose() }
-  return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" type="button" onClick={onClose} aria-label="Close">×</button><div className="auth-icon">✦</div><p className="eyebrow">{mode === 'signin' ? 'WELCOME BACK' : 'CREATE YOUR ACCOUNT'}</p><h2 id="auth-title">{mode === 'signin' ? 'Sign in with Google' : 'Start with Google'}</h2><p className="auth-subtitle">{mode === 'signin' ? 'Continue to your Personal AI workspace.' : 'Create your Personal AI account in seconds.'}</p><GoogleButton onSuccess={handleSuccess} /><div className="auth-divider"><span>Secure Google authentication</span></div><button className="auth-switch" type="button" onClick={() => onSwitch(mode === 'signin' ? 'signup' : 'signin')}>{mode === 'signin' ? 'New here? Sign up' : 'Already have an account? Sign in'}</button><p className="auth-terms">By continuing, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p></div></div>
+
+  async function submitAuth(event: React.FormEvent) {
+    event.preventDefault(); setError(''); setMessage(''); setLoading(true)
+    try {
+      const user = mode === 'signup' ? await signUpWithEmail(name, email, password) : await signInWithEmail(email, password)
+      handleSuccess(user)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Authentication failed.') } finally { setLoading(false) }
+  }
+
+  async function sendOtp(event: React.FormEvent) {
+    event.preventDefault(); setError(''); setMessage(''); setLoading(true)
+    try { const result = await requestPasswordReset(email); setMessage(result.message); setStep('otp') } catch (e) { setError(e instanceof Error ? e.message : 'Unable to send the reset code.') } finally { setLoading(false) }
+  }
+
+  async function verifyOtp(event: React.FormEvent) {
+    event.preventDefault(); setError(''); setLoading(true)
+    try { setResetToken(await verifyPasswordResetOtp(email, otp)); setStep('new-password') } catch (e) { setError(e instanceof Error ? e.message : 'Invalid or expired code.') } finally { setLoading(false) }
+  }
+
+  async function updatePassword(event: React.FormEvent) {
+    event.preventDefault(); setError(''); setMessage(''); setLoading(true)
+    try { const result = await resetPassword(email, resetToken, newPassword); setMessage(result.message); setPassword(''); setNewPassword(''); setOtp(''); setStep('auth'); onSwitch('signin') } catch (e) { setError(e instanceof Error ? e.message : 'Unable to update password.') } finally { setLoading(false) }
+  }
+
+  const title = step === 'forgot-email' ? 'Forgot your password?' : step === 'otp' ? 'Enter your reset code' : step === 'new-password' ? 'Create a new password' : mode === 'signin' ? 'Welcome back' : 'Create your account'
+  const subtitle = step === 'forgot-email' ? 'We’ll send a one-time code to your email.' : step === 'otp' ? `Enter the 6-digit code sent to ${email}.` : step === 'new-password' ? 'Choose a strong password with at least 8 characters.' : mode === 'signin' ? 'Sign in to your Personal AI workspace.' : 'Create your Personal AI account in seconds.'
+
+  return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" type="button" onClick={onClose} aria-label="Close">×</button><div className="auth-icon">✦</div><p className="eyebrow">SECURE ACCOUNT</p><h2 id="auth-title">{title}</h2><p className="auth-subtitle">{subtitle}</p>
+    {step === 'auth' && <>
+      <form className="auth-form" onSubmit={submitAuth}>{mode === 'signup' && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" autoComplete="name" required />}<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" type="email" autoComplete="email" required /><input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (8+ characters)" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required /><button className="auth-primary" type="submit" disabled={loading}>{loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}</button></form>
+      {mode === 'signin' && <button className="forgot-link" type="button" onClick={() => { setStep('forgot-email'); setError(''); setMessage('') }}>Forgot password?</button>}
+      <div className="auth-divider"><span>or continue with Google</span></div><GoogleButton onSuccess={handleSuccess} />
+      <button className="auth-switch" type="button" onClick={() => onSwitch(mode === 'signin' ? 'signup' : 'signin')}>{mode === 'signin' ? 'New here? Sign up' : 'Already have an account? Sign in'}</button>
+    </>}
+    {step === 'forgot-email' && <form className="auth-form" onSubmit={sendOtp}><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" type="email" autoComplete="email" required /><button className="auth-primary" type="submit" disabled={loading}>{loading ? 'Sending…' : 'Send reset code'}</button><button className="auth-back" type="button" onClick={() => setStep('auth')}>Back to sign in</button></form>}
+    {step === 'otp' && <form className="auth-form" onSubmit={verifyOtp}><input className="otp-input" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required /><button className="auth-primary" type="submit" disabled={loading || otp.length !== 6}>{loading ? 'Verifying…' : 'Verify code'}</button><button className="auth-back" type="button" onClick={() => setStep('forgot-email')}>Use another email</button></form>}
+    {step === 'new-password' && <form className="auth-form" onSubmit={updatePassword}><input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password" type="password" autoComplete="new-password" minLength={8} required /><input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Confirm new password" type="password" autoComplete="new-password" minLength={8} required /><button className="auth-primary" type="submit" disabled={loading || newPassword !== password}>{loading ? 'Updating…' : 'Update password'}</button></form>}
+    {error && <p className="auth-error">{error}</p>}{message && <p className="auth-success">{message}</p>}
+    <p className="auth-terms">By continuing, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p></div></div>
 }
 
 function Footer() { return <footer className="footer"><div><Logo /><p>Research. Understand. Compare. Get things done.</p></div><nav aria-label="Legal"><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/cookies">Cookies</a><a href="/acceptable-use">Acceptable Use</a><a href="/ai-disclaimer">AI Disclaimer</a></nav><span>© 2026 Personal AI Assistant</span></footer> }
