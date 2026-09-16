@@ -64,9 +64,25 @@ export async function signOut() {
   await fetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' })
 }
 
+export type WebSource = {
+  title: string
+  url: string
+  provider: string
+}
+
 export type ChatMessage = {
   role: 'user' | 'assistant'
   content: string
+  sources?: WebSource[]
+}
+
+export type ChatResponse = {
+  message: string
+  webSearch: {
+    used: boolean
+    providers: string[]
+    sources: WebSource[]
+  }
 }
 
 export async function sendChatMessage(messages: ChatMessage[]) {
@@ -76,8 +92,8 @@ export async function sendChatMessage(messages: ChatMessage[]) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages }),
   })
-  const data = (await response.json()) as { message?: string; error?: string }
+  const data = (await response.json()) as ChatResponse & { error?: string }
   if (!response.ok) throw new Error(data.error ?? 'Chat request failed')
   if (!data.message) throw new Error('The assistant returned an empty response')
-  return data.message
+  return data
 }
