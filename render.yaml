@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: personal-ai-assistant-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
