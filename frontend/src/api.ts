@@ -95,5 +95,5 @@ export async function sendChatMessage(messages: ChatMessage[]) {
   const data = (await response.json()) as ChatResponse & { error?: string }
   if (!response.ok) throw new Error(data.error ?? 'Chat request failed')
   if (!data.message) throw new Error('The assistant returned an empty response')
-  return data
+  return data.message
 }
