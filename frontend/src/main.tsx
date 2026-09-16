@@ -2,6 +2,7 @@ import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { getCurrentUser, sendChatMessage, signInWithGoogle, signOut, type ChatMessage, type User } from './api'
 import './styles.css'
+import './auth.css'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
@@ -22,15 +23,13 @@ function GoogleButton({ onSuccess }: { onSuccess: (user: User) => void }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(Boolean(window.google))
   const [error, setError] = useState('')
-
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) { setError('Google sign-in is not configured yet.'); return }
     const render = () => {
       if (!window.google || !containerRef.current) return
       containerRef.current.innerHTML = ''
       window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: async ({ credential }) => {
-        try { setError(''); onSuccess(await signInWithGoogle(credential)) }
-        catch (e) { setError(e instanceof Error ? e.message : 'Google sign-in failed.') }
+        try { setError(''); onSuccess(await signInWithGoogle(credential)) } catch (e) { setError(e instanceof Error ? e.message : 'Google sign-in failed.') }
       } })
       window.google.accounts.id.renderButton(containerRef.current, { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 340 })
       setReady(true)
@@ -38,11 +37,9 @@ function GoogleButton({ onSuccess }: { onSuccess: (user: User) => void }) {
     if (window.google) { render(); return }
     const existing = document.querySelector<HTMLScriptElement>('script[data-google-gsi]')
     if (existing) { existing.addEventListener('load', render); return () => existing.removeEventListener('load', render) }
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'; script.async = true; script.defer = true; script.dataset.googleGsi = 'true'; script.addEventListener('load', render); document.head.appendChild(script)
+    const script = document.createElement('script'); script.src = 'https://accounts.google.com/gsi/client'; script.async = true; script.defer = true; script.dataset.googleGsi = 'true'; script.addEventListener('load', render); document.head.appendChild(script)
     return () => script.removeEventListener('load', render)
   }, [onSuccess])
-
   return <div className="google-login-wrap"><div ref={containerRef} className="google-login-button" />{!ready && !error && <p className="auth-loading">Loading Google…</p>}{error && <p className="auth-error">{error}</p>}</div>
 }
 
