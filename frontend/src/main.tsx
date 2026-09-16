@@ -1,18 +1,16 @@
-import { StrictMode, useEffect, useRef, useState, type FormEvent } from 'react'
+import { StrictMode, useEffect, useState, type FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
-import { getCurrentUser, requestPasswordReset, resetPassword, sendChatMessage, signInWithEmail, signInWithGoogle, signUpWithEmail, signOut, verifyPasswordResetOtp, type ChatMessage, type User } from './api'
+import { getCurrentUser, requestPasswordReset, resetPassword, sendChatMessage, signInWithEmail, signUpWithEmail, signOut, verifyPasswordResetOtp, type ChatMessage, type User } from './api'
 import './styles.css'
 import './auth.css'
-
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
 type AuthMode = 'signin' | 'signup'
 type AuthStep = 'auth' | 'forgot-email' | 'otp' | 'new-password'
 type LegalPath = '/terms' | '/privacy' | '/cookies' | '/acceptable-use' | '/ai-disclaimer'
 
 const legalPages: Record<LegalPath, { title: string; sections: [string, string][] }> = {
-  '/terms': { title: 'Terms of Service', sections: [['About the service', 'Personal AI Assistant is a web-based AI service for research, explanations, comparisons, planning, and related productivity use cases. Features may change as the product evolves.'], ['Acceptable use', 'Use the service lawfully. Do not use it for fraud, credential theft, malware, unauthorized access, abuse, harassment, or other harmful or illegal activity.'], ['AI-generated information', 'AI responses can be inaccurate, incomplete, outdated, or unsuitable for your situation. Verify important information independently and do not treat the service as professional advice.'], ['Accounts', 'You are responsible for activity under your account and should keep access to your account secure. Google authentication is used to create and access your account.'], ['Availability', 'We may change, limit, suspend, or discontinue features and may experience maintenance or outages.'], ['Intellectual property', 'The service, interface, branding, software, and original materials are protected by applicable intellectual-property laws.']] },
-  '/privacy': { title: 'Privacy Policy', sections: [['Information we collect', 'Depending on the features you use, we may process your Google account identifier, name, email address, profile picture, prompts, conversations, technical information, and security logs.'], ['How we use information', 'Information may be used to provide accounts and AI features, secure the service, prevent abuse, troubleshoot issues, improve reliability, and comply with law.'], ['Google authentication', 'When you sign in with Google, Google provides identity information to our backend. We use it to create or find your account and establish a secure session.'], ['AI providers', 'Content needed to generate an AI response may be sent from our backend to the configured AI provider. API credentials remain server-side.'], ['Retention and deletion', 'We aim to retain information only as reasonably necessary for the relevant purpose, security, service operation, or legal requirements.'], ['Security', 'We use reasonable safeguards, but no internet service can guarantee absolute security. Never submit passwords, private keys, or other secrets to the assistant.']] },
+  '/terms': { title: 'Terms of Service', sections: [['About the service', 'Personal AI Assistant is a web-based AI service for research, explanations, comparisons, planning, and related productivity use cases. Features may change as the product evolves.'], ['Acceptable use', 'Use the service lawfully. Do not use it for fraud, credential theft, malware, unauthorized access, abuse, harassment, or other harmful or illegal activity.'], ['AI-generated information', 'AI responses can be inaccurate, incomplete, outdated, or unsuitable for your situation. Verify important information independently and do not treat the service as professional advice.'], ['Accounts', 'You are responsible for activity under your account and should keep access to your account secure.'], ['Availability', 'We may change, limit, suspend, or discontinue features and may experience maintenance or outages.'], ['Intellectual property', 'The service, interface, branding, software, and original materials are protected by applicable intellectual-property laws.']] },
+  '/privacy': { title: 'Privacy Policy', sections: [['Information we collect', 'Depending on the features you use, we may process your name, email address, profile picture, prompts, conversations, technical information, and security logs.'], ['How we use information', 'Information may be used to provide accounts and AI features, secure the service, prevent abuse, troubleshoot issues, improve reliability, and comply with law.'], ['AI providers', 'Content needed to generate an AI response may be sent from our backend to the configured AI provider. API credentials remain server-side.'], ['Retention and deletion', 'We aim to retain information only as reasonably necessary for the relevant purpose, security, service operation, or legal requirements.'], ['Security', 'We use reasonable safeguards, but no internet service can guarantee absolute security. Never submit passwords, private keys, or other secrets to the assistant.']] },
   '/cookies': { title: 'Cookie Policy', sections: [['Essential cookies', 'The authentication system uses an HTTP-only session cookie so the browser can remain signed in without exposing the session token to page scripts.'], ['Other storage', 'The site may use browser storage for non-sensitive interface preferences.'], ['Managing cookies', 'You can control cookies through browser settings. Blocking essential cookies can prevent sign-in from working.'], ['Changes', 'This policy may be updated when authentication, analytics, or other website technologies change.']] },
   '/acceptable-use': { title: 'Acceptable Use Policy', sections: [['Allowed use', 'Use the assistant for legitimate research, learning, writing, planning, comparison, job research, and other lawful activities.'], ['Prohibited use', 'Do not use the service for fraud, phishing, credential theft, malware, unauthorized access, harassment, evasion of security controls, or illegal activity.'], ['Abuse prevention', 'We may apply rate limits, safeguards, account restrictions, or other measures to protect users and infrastructure.']] },
   '/ai-disclaimer': { title: 'AI Disclaimer', sections: [['AI can make mistakes', 'AI-generated output may contain factual errors, hallucinations, missing context, incorrect calculations, or outdated information.'], ['Verify important information', 'For important decisions, independently verify facts using reliable primary or authoritative sources.'], ['High-impact decisions', 'Do not rely on the assistant alone for medical, legal, financial, safety-critical, employment, or other high-impact professional decisions.'], ['Your responsibility', 'You remain responsible for how you use generated content and for checking that it is appropriate for your situation.']] },
@@ -20,28 +18,8 @@ const legalPages: Record<LegalPath, { title: string; sections: [string, string][
 
 function Logo() { return <a className="brand" href="/" aria-label="Personal AI Assistant home"><span className="brand-mark">✦</span><span>Personal AI</span></a> }
 
-function GoogleButton({ onSuccess }: { onSuccess: (user: User) => void }) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [ready, setReady] = useState(Boolean(window.google))
-  const [error, setError] = useState('')
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID) { setError('Google sign-in will be enabled after the final domain is configured.'); return }
-    const render = () => {
-      if (!window.google || !containerRef.current) return
-      containerRef.current.innerHTML = ''
-      window.google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: async ({ credential }) => {
-        try { setError(''); onSuccess(await signInWithGoogle(credential)) } catch (e) { setError(e instanceof Error ? e.message : 'Google sign-in failed.') }
-      } })
-      window.google.accounts.id.renderButton(containerRef.current, { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', shape: 'pill', width: 340 })
-      setReady(true)
-    }
-    if (window.google) { render(); return }
-    const existing = document.querySelector<HTMLScriptElement>('script[data-google-gsi]')
-    if (existing) { existing.addEventListener('load', render); return () => existing.removeEventListener('load', render) }
-    const script = document.createElement('script'); script.src = 'https://accounts.google.com/gsi/client'; script.async = true; script.defer = true; script.dataset.googleGsi = 'true'; script.addEventListener('load', render); document.head.appendChild(script)
-    return () => script.removeEventListener('load', render)
-  }, [onSuccess])
-  return <div className="google-login-wrap"><div ref={containerRef} className="google-login-button" />{!ready && !error && <p className="auth-loading">Loading Google…</p>}{error && <p className="auth-error">{error}</p>}</div>
+function GoogleUnavailable() {
+  return <div className="google-unavailable" aria-disabled="true"><div className="google-unavailable-inner"><span className="google-g-mark">G</span><span>Google</span></div><strong>Not available right now</strong></div>
 }
 
 function AuthModal({ mode, onClose, onSwitch, onSuccess }: { mode: AuthMode; onClose: () => void; onSwitch: (mode: AuthMode) => void; onSuccess: (user: User) => void }) {
@@ -53,6 +31,7 @@ function AuthModal({ mode, onClose, onSwitch, onSuccess }: { mode: AuthMode; onC
   const [resetToken, setResetToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const handleSuccess = (user: User) => { onSuccess(user); onClose() }
@@ -62,29 +41,38 @@ function AuthModal({ mode, onClose, onSwitch, onSuccess }: { mode: AuthMode; onC
     try { const user = mode === 'signup' ? await signUpWithEmail(name, email, password) : await signInWithEmail(email, password); handleSuccess(user) }
     catch (e) { setError(e instanceof Error ? e.message : 'Authentication failed.') } finally { setLoading(false) }
   }
+
   async function sendOtp(event: FormEvent) {
     event.preventDefault(); setError(''); setMessage(''); setLoading(true)
     try { const result = await requestPasswordReset(email); setMessage(result.message); setStep('otp') }
     catch (e) { setError(e instanceof Error ? e.message : 'Unable to send the reset code.') } finally { setLoading(false) }
   }
+
+  async function resendOtp() {
+    setError(''); setMessage(''); setResending(true)
+    try { const result = await requestPasswordReset(email); setMessage(result.message) }
+    catch (e) { setError(e instanceof Error ? e.message : 'Unable to resend the reset code.') } finally { setResending(false) }
+  }
+
   async function verifyOtp(event: FormEvent) {
     event.preventDefault(); setError(''); setLoading(true)
     try { setResetToken(await verifyPasswordResetOtp(email, otp)); setStep('new-password') }
     catch (e) { setError(e instanceof Error ? e.message : 'Invalid or expired code.') } finally { setLoading(false) }
   }
+
   async function updatePassword(event: FormEvent) {
     event.preventDefault(); setError(''); setMessage(''); setLoading(true)
     try { const result = await resetPassword(email, resetToken, newPassword); setMessage(result.message); setPassword(''); setNewPassword(''); setOtp(''); setStep('auth'); onSwitch('signin') }
-    catch (e) { setError(e instanceof Error ? e.message : 'Unable to update password.') } finally { setLoading(false) }
+    catch (e) { setError(e instanceof Error ? e.message : 'Unable to update the password.') } finally { setLoading(false) }
   }
 
   const title = step === 'forgot-email' ? 'Forgot your password?' : step === 'otp' ? 'Enter your reset code' : step === 'new-password' ? 'Create a new password' : mode === 'signin' ? 'Welcome back' : 'Create your account'
   const subtitle = step === 'forgot-email' ? 'We’ll send a one-time code to your email.' : step === 'otp' ? `Enter the 6-digit code sent to ${email}.` : step === 'new-password' ? 'Choose a strong password with at least 8 characters.' : mode === 'signin' ? 'Sign in to your Personal AI workspace.' : 'Create your Personal AI account in seconds.'
 
   return <div className="modal-backdrop" role="presentation" onMouseDown={onClose}><div className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" onMouseDown={(e) => e.stopPropagation()}><button className="modal-close" type="button" onClick={onClose} aria-label="Close">×</button><div className="auth-icon">✦</div><p className="eyebrow">SECURE ACCOUNT</p><h2 id="auth-title">{title}</h2><p className="auth-subtitle">{subtitle}</p>
-    {step === 'auth' && <><form className="auth-form" onSubmit={submitAuth}>{mode === 'signup' && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" autoComplete="name" required />}<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" type="email" autoComplete="email" required /><input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (8+ characters)" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required /><button className="auth-primary" type="submit" disabled={loading}>{loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}</button></form>{mode === 'signin' && <button className="forgot-link" type="button" onClick={() => { setStep('forgot-email'); setError(''); setMessage('') }}>Forgot password?</button>}<div className="auth-divider"><span>or continue with Google</span></div><GoogleButton onSuccess={handleSuccess} /><button className="auth-switch" type="button" onClick={() => onSwitch(mode === 'signin' ? 'signup' : 'signin')}>{mode === 'signin' ? 'New here? Sign up' : 'Already have an account? Sign in'}</button></>}
+    {step === 'auth' && <><form className="auth-form" onSubmit={submitAuth}>{mode === 'signup' && <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" autoComplete="name" required />}<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" type="email" autoComplete="email" required /><input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (8+ characters)" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} minLength={8} required /><button className="auth-primary" type="submit" disabled={loading}>{loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}</button></form>{mode === 'signin' && <button className="forgot-link" type="button" onClick={() => { setStep('forgot-email'); setError(''); setMessage('') }}>Forgot password?</button>}<div className="auth-divider"><span>or continue with</span></div><GoogleUnavailable /><button className="auth-switch" type="button" onClick={() => onSwitch(mode === 'signin' ? 'signup' : 'signin')}>{mode === 'signin' ? 'New here? Sign up' : 'Already have an account? Sign in'}</button></>}
     {step === 'forgot-email' && <form className="auth-form" onSubmit={sendOtp}><input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" type="email" autoComplete="email" required /><button className="auth-primary" type="submit" disabled={loading}>{loading ? 'Sending…' : 'Send reset code'}</button><button className="auth-back" type="button" onClick={() => setStep('auth')}>Back to sign in</button></form>}
-    {step === 'otp' && <form className="auth-form" onSubmit={verifyOtp}><input className="otp-input" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required /><button className="auth-primary" type="submit" disabled={loading || otp.length !== 6}>{loading ? 'Verifying…' : 'Verify code'}</button><button className="auth-back" type="button" onClick={() => setStep('forgot-email')}>Use another email</button></form>}
+    {step === 'otp' && <form className="auth-form" onSubmit={verifyOtp}><input className="otp-input" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="6-digit code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} required /><button className="auth-primary" type="submit" disabled={loading || otp.length !== 6}>{loading ? 'Verifying…' : 'Verify code'}</button><button className="auth-resend" type="button" onClick={() => void resendOtp()} disabled={resending || loading}>{resending ? 'Resending…' : 'Resend code'}</button><button className="auth-back" type="button" onClick={() => setStep('forgot-email')}>Use another email</button></form>}
     {step === 'new-password' && <form className="auth-form" onSubmit={updatePassword}><input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password" type="password" autoComplete="new-password" minLength={8} required /><input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Confirm new password" type="password" autoComplete="new-password" minLength={8} required /><button className="auth-primary" type="submit" disabled={loading || newPassword !== password}>{loading ? 'Updating…' : 'Update password'}</button></form>}
     {error && <p className="auth-error">{error}</p>}{message && <p className="auth-success">{message}</p>}<p className="auth-terms">By continuing, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p></div></div>
 }
