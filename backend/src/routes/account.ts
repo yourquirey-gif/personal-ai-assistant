@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, type Response } from 'express'
 import { randomBytes } from 'node:crypto'
 import { getDb } from '../db.js'
 import { requireSession, type SessionUser } from '../auth/session.js'
@@ -8,7 +8,7 @@ accountRouter.use(requireSession)
 
 const DAILY_LIMIT = 30
 
-function getUser(res: { locals: { user?: SessionUser } }) {
+function getUser(res: Response): SessionUser {
   return res.locals.user as SessionUser
 }
 
