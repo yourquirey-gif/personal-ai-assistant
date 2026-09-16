@@ -55,10 +55,11 @@ export async function signOut() {
 }
 
 export type WebSource = { title: string; url: string; provider: string }
-export type ChatMessage = { role: 'user' | 'assistant'; content: string; sources?: WebSource[] }
-export type ChatResponse = { message: string; model?: string; conversationId?: string; webSearch: { used: boolean; providers: string[]; sources: WebSource[] } }
+export type ChatMessage = { role: 'user' | 'assistant'; content: string; sources?: WebSource[]; createdAt?: string }
+export type ChatResponse = { message: string; model?: string; conversationId?: string; webSearch: { used: boolean; providers: string[]; sources: WebSource[]; planReason?: string } }
 
 export function startNewChat() { localStorage.removeItem(CONVERSATION_STORAGE_KEY) }
+export function getCurrentConversationId() { return localStorage.getItem(CONVERSATION_STORAGE_KEY) }
 
 async function ensureConversation() {
   const existing = localStorage.getItem(CONVERSATION_STORAGE_KEY)
@@ -68,12 +69,12 @@ async function ensureConversation() {
   return data.conversation.id
 }
 
-export async function sendChatMessage(messages: ChatMessage[]) {
+export async function sendChatMessage(messages: ChatMessage[]): Promise<ChatResponse> {
   const conversationId = await ensureConversation()
   const data = await apiFetch<ChatResponse>('/api/chat', { method: 'POST', body: JSON.stringify({ messages, conversationId }) })
   if (data.conversationId) localStorage.setItem(CONVERSATION_STORAGE_KEY, data.conversationId)
   if (!data.message) throw new Error('The assistant returned an empty response')
-  return data.message
+  return data
 }
 
 export type Conversation = { id: string; title: string; createdAt: string; updatedAt: string }
